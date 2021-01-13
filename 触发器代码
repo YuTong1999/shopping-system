@@ -1,0 +1,31 @@
+#向purchases表插入记录触发
+CREATE TRIGGER purchases_insert
+AFTER INSERT ON purchases FOR EACH ROW
+#触发的所有时间如下
+BEGIN
+#(1)logs表自动进行记录
+INSERT INTO logs(who, time, table_name, operation, key_value)
+VALUES ('root', now(), 'purchases', 'insert', new.pur);
+#(2)更新products表中的qoh
+UPDATE products
+SET qoh = IF(qoh - new.qty >= qoh_threshold, qoh - new.qty, 2 * qoh)
+WHERE products.pid = new.pid;
+#(3)将customers表中的visits_made增加1，并更新last_visit_time
+UPDATE customers
+SET visits_made = visits_made + 1, last_visit_time = now()
+WHERE customers.cid = new.cid;
+END;
+
+#在products表更新记录触发
+CREATE TRIGGER products_update
+AFTER UPDATE ON products FOR EACH ROW
+#logs表自动进行记录
+INSERT INTO logs(who, time, table_name, operation, key_value)
+VALUES ('root', now(), 'products', 'update', new.pid);
+
+#在customers表更新记录触发
+CREATE TRIGGER customers_update
+AFTER UPDATE ON customers FOR EACH ROW
+#logs表自动进行记录
+INSERT INTO logs(who, time, table_name, operation, key_value)
+VALUES ('root', now(), 'customers', 'update', new.cid);
